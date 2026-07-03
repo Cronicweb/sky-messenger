@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Sky Messenger — a low-poly delivery game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<style>
+  :root { --accent:#ffd24a; --accent2:#ff7a59; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; overflow:hidden; background:#89c4ff; font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  /* HUD */
+  #hud { position:fixed; inset:0; pointer-events:none; color:#1b2440; }
+  .panel { position:absolute; background:rgba(255,255,255,.82); backdrop-filter:blur(4px);
+           border-radius:14px; padding:10px 16px; box-shadow:0 6px 20px rgba(30,50,90,.18); }
+  #topleft { top:16px; left:16px; min-width:190px; }
+  #topleft .row { display:flex; justify-content:space-between; gap:14px; font-weight:bold; font-size:15px; margin:2px 0; }
+  #topleft .big { font-size:26px; color:var(--accent2); }
+  #objective { top:16px; left:50%; transform:translateX(-50%); text-align:center; font-weight:bold; font-size:15px; max-width:70vw; }
+  #objective .tag { color:#8a93ad; font-size:11px; letter-spacing:2px; text-transform:uppercase; display:block; }
+  #compass { top:80px; left:50%; transform:translateX(-50%); font-size:13px; color:#3a4a72; }
+
+  /* Minimap */
+  #minimap { position:fixed; right:16px; top:16px; width:150px; height:150px; border-radius:14px;
+             background:rgba(255,255,255,.7); box-shadow:0 6px 20px rgba(30,50,90,.18); }
+
+  /* Overlays */
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+             background:radial-gradient(120% 120% at 50% 20%, rgba(140,200,255,.55), rgba(60,110,190,.75));
+             backdrop-filter:blur(3px); text-align:center; z-index:20; }
+  .card { background:#fff; border-radius:22px; padding:34px 40px; max-width:520px; width:88%;
+          box-shadow:0 20px 60px rgba(20,40,80,.35); }
+  .card h1 { font-size:40px; color:#1b2440; letter-spacing:1px; }
+  .card h1 .em { color:var(--accent2); }
+  .card p, .card li { color:#43506e; line-height:1.5; }
+  .card ul { text-align:left; display:inline-block; margin:14px auto; }
+  .card .keys { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:16px 0; }
+  .key { background:#eef2fb; border-bottom:3px solid #cbd6ef; border-radius:8px; padding:6px 12px;
+         font-weight:bold; color:#33406a; font-size:13px; }
+  button { pointer-events:auto; cursor:pointer; border:none; font-family:inherit; font-weight:bold;
+           font-size:19px; color:#1b2440; background:linear-gradient(180deg,var(--accent),#ffbf2e);
+           padding:14px 40px; border-radius:40px; box-shadow:0 8px 0 #e09b12, 0 12px 24px rgba(224,155,18,.4);
+           transition:transform .08s ease, box-shadow .08s ease; margin-top:8px; }
+  button:active { transform:translateY(5px); box-shadow:0 3px 0 #e09b12, 0 6px 12px rgba(224,155,18,.4); }
+  .hidden { display:none !important; }
+  #hint { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); color:#fff;
+          font-weight:bold; font-size:13px; text-shadow:0 2px 6px rgba(0,0,0,.35); pointer-events:none; }
+
+  /* Mobile touch controls */
+  #touch { position:fixed; inset:0; z-index:15; display:none; }
+  #stick { position:absolute; left:24px; bottom:24px; width:130px; height:130px; border-radius:50%;
+           background:rgba(255,255,255,.25); border:2px solid rgba(255,255,255,.5); pointer-events:auto; }
+  #nub { position:absolute; left:35px; top:35px; width:60px; height:60px; border-radius:50%;
+         background:rgba(255,255,255,.75); }
+  #boostBtn { position:absolute; right:24px; bottom:40px; width:96px; height:96px; border-radius:50%;
+              background:rgba(255,210,74,.85); border:2px solid #fff; pointer-events:auto; color:#1b2440;
+              font-weight:bold; font-size:14px; line-height:96px; text-align:center; }
+  @media (hover:none) and (pointer:coarse){ #touch{display:block;} #hint{display:none;} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="topleft" class="panel">
+    <div class="row"><span>Delivered</span><span class="big" id="score">0</span></div>
+    <div class="row"><span>Time left</span><span id="time">120</span></div>
+    <div class="row"><span>Carrying</span><span id="carry">—</span></div>
+  </div>
+  <div id="objective" class="panel">
+    <span class="tag">Objective</span>
+    <span id="obj-text">Fly to the glowing letter to pick it up</span>
+  </div>
+  <canvas id="minimap" width="150" height="150"></canvas>
+</div>
+
+<div id="hint">WASD / Arrows to fly · Shift = boost · Space = brake</div>
+
+<!-- Touch controls -->
+<div id="touch">
+  <div id="stick"><div id="nub"></div></div>
+  <div id="boostBtn">BOOST</div>
+</div>
+
+<!-- Start overlay -->
+<div id="start" class="overlay">
+  <div class="card">
+    <h1>Sky <span class="em">Messenger</span></h1>
+    <p>You are the town's flying courier. Swoop down to pick up glowing letters and
+       deliver each one to the matching <b>mailbox</b> before time runs out.</p>
+    <div class="keys">
+      <span class="key">W A S D — steer</span>
+      <span class="key">Shift — boost</span>
+      <span class="key">Space — brake / dive</span>
+      <span class="key">Mouse — look around</span>
+    </div>
+    <p><b>Pick up</b> a letter by flying close to it, then reach the mailbox that
+       lights up. Chain deliveries fast for bonus time!</p>
+    <button id="startBtn">Take Off ✈</button>
+  </div>
+</div>
+
+<!-- Game over overlay -->
+<div id="end" class="overlay hidden">
+  <div class="card">
+    <h1 id="end-title">Shift's over!</h1>
+    <p id="end-sub">You delivered your mail.</p>
+    <p style="font-size:40px;font-weight:bold;color:#ff7a59;margin:10px 0" id="end-score">0</p>
+    <p id="end-msg"></p>
+    <button id="againBtn">Fly Again</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="./game.js"></script>
+</body>
+</html>
