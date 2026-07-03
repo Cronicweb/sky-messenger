@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Sky Messenger — a low-poly delivery game</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
 <style>
   :root { --accent:#ffd24a; --accent2:#ff7a59; }
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -64,6 +63,26 @@
 <body>
 <div id="app"></div>
 
+<!-- Visible error surface: if the game ever fails to load, show why -->
+<div id="errbox" style="display:none;position:fixed;left:10px;bottom:10px;z-index:99;max-width:92vw;
+     background:#2b0d0d;color:#ffd7d7;font:12px/1.4 monospace;padding:10px 12px;border-radius:8px;
+     white-space:pre-wrap;box-shadow:0 6px 20px rgba(0,0,0,.4)"></div>
+<script>
+  (function(){
+    var box=document.getElementById('errbox');
+    function show(msg){ box.style.display='block'; box.textContent='⚠ '+msg; }
+    addEventListener('error', function(e){
+      if(e.target && (e.target.tagName==='SCRIPT'||e.target.tagName==='LINK')){
+        show('Failed to load resource: '+(e.target.src||e.target.href)+
+             '\n(check network / CDN access)');
+      } else if(e.message){ show(e.message+' @ '+(e.filename||'')+':'+(e.lineno||'')); }
+    }, true);
+    addEventListener('unhandledrejection', function(e){
+      show('Load error: '+(e.reason && (e.reason.stack||e.reason.message||e.reason)));
+    });
+  })();
+</script>
+
 <div id="hud">
   <div id="topleft" class="panel">
     <div class="row"><span>Delivered</span><span class="big" id="score">0</span></div>
@@ -114,14 +133,6 @@
   </div>
 </div>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
 <script type="module" src="./game.js"></script>
 </body>
 </html>
