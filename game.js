@@ -38,8 +38,11 @@ let mouse = { x:0, y:0 };
 
 const el = id => document.getElementById(id);
 
-/* ---------------- Init ---------------- */
-init();
+/* ---------------- Init ----------------
+   NOTE: init() is invoked at the very BOTTOM of this file, after every
+   module-level const (mm, _v, COLOR_NAMES, …) has been initialized, so the
+   render loop it starts can safely reference them. Calling it up here would
+   hit a temporal-dead-zone ReferenceError and abort the whole module. */
 
 function init() {
   scene = new THREE.Scene();
@@ -544,3 +547,7 @@ function onResize(){
 function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
   let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t;
   return ((t^t>>>14)>>>0)/4294967296; }; }
+
+/* ---------------- boot ----------------
+   Everything the render loop needs is now initialized above. */
+init();
